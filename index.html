@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>pixel-pindo 像素拼豆 · 模擬拼豆工作台</title>
+<link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+<div class="cosmic"></div>
+<canvas id="bgGrid"></canvas>
+
+<header class="topbar">
+  <div class="brand-txt">
+    <span class="brand">PIXEL-PINDO 像素拼豆</span>
+    <span class="tagline">上傳圖片 · 色號清單 · 物理豆盒 · 動手拼豆</span>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-text" id="progressText">尚未開始</span>
+  </div>
+</header>
+
+<!-- 左側可拉出卡片抽屜（半常駐：預設露出右側拉柄） -->
+<aside class="drawer" id="sideDrawer" aria-hidden="true">
+  <div class="drawer-card">
+    <div class="drawer-head">
+      <span class="drawer-title">選單</span>
+      <button type="button" class="drawer-close" id="drawerClose" title="收起選單" aria-label="收起選單">‹</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- 區塊一：上傳與尺寸 -->
+      <section class="drawer-section" id="panelUpload">
+        <h3 class="section-title"><span class="section-no">1</span>上傳圖片</h3>
+        <div class="drop" id="photoDrop">
+          拖曳圖片到這裡，或 <a>點擊上傳</a>
+          <input type="file" id="photoInput" accept="image/*" hidden />
+        </div>
+        <div class="note" id="photoName"></div>
+        <button type="button" class="ghost-btn" id="demoBtn">使用內建示範圖案（32×32 愛心）</button>
+        <div class="row" style="margin-top:12px">
+          <div style="flex:1">
+            <label>寬（列數）</label>
+            <input type="number" id="gw" min="8" max="128" value="40" />
+          </div>
+          <div style="flex:1">
+            <label>高（行數）</label>
+            <input type="number" id="gh" min="8" max="128" value="40" />
+          </div>
+        </div>
+        <div class="presets" id="presets"></div>
+        <button type="button" class="primary" id="applyBtn" style="width:100%">生成圖案與色號清單</button>
+        <div class="hint" id="genHint">上傳圖片後，系統會分析顏色並對映到內建 192 色標準色卡。</div>
+      </section>
+
+      <!-- 區塊二：色號清單 -->
+      <section class="drawer-section" id="panelColors">
+        <h3 class="section-title">
+          <span class="section-no">2</span>色號清單
+          <span class="section-badge" id="tabBadge" hidden>0</span>
+        </h3>
+        <div class="hint" id="paletteEmpty">生成圖案後，這裡會列出每種顏色的需求／已放／剩餘數量。點選色號即可到豆盒倒豆。</div>
+        <div class="color-list" id="paletteList"></div>
+        <button type="button" class="ghost-btn" id="exportBtn" style="width:100%;margin-top:10px">匯出購豆清單 JSON</button>
+      </section>
+    </div>
+  </div>
+
+  <!-- 拉柄（卡片右側，收起時露出） -->
+  <div class="drawer-rail" id="drawerHandle" role="button" tabindex="0" aria-label="拉出選單">
+    <span class="rail-arrow">›</span>
+    <span class="rail-grip"></span>
+    <span class="rail-grip"></span>
+    <span class="rail-grip"></span>
+    <span class="rail-label">選單</span>
+  </div>
+</aside>
+
+<main class="layout">
+  <!-- 中欄：釘板 -->
+  <section class="col-center">
+    <div class="card board-card">
+      <h2><span class="step-no">3.</span>釘板
+        <label class="ghost-toggle"><input type="checkbox" id="ghostToggle" checked /> 顯示目標底圖</label>
+        <button type="button" class="board-edit-btn" id="boardEditBtn" title="框選要保留的區域">✎ 編輯</button>
+      </h2>
+      <div class="zoom-bar">
+        <button type="button" class="zoom-btn" id="zoomOut">−</button>
+        <input type="range" id="zoomSlider" min="0.5" max="8" step="0.25" value="1" />
+        <button type="button" class="zoom-btn" id="zoomIn">+</button>
+        <span class="zoom-val" id="zoomVal">1.0×</span>
+        <button type="button" class="zoom-btn" id="zoomFit" title="適應視窗">⊞</button>
+      </div>
+      <div class="board-wrap">
+        <canvas id="boardCanvas" style="display:none"></canvas>
+        <div class="placeholder" id="boardPlaceholder">請先上傳圖片或使用示範圖案</div>
+        <div class="crop-toolbar" id="cropToolbar" hidden>
+          <span class="crop-sel-info" id="cropSelInfo">尚未選取</span>
+          <button type="button" class="crop-apply" id="cropApplyBtn">套用</button>
+          <button type="button" class="crop-cancel" id="cropCancelBtn">取消</button>
+        </div>
+      </div>
+      <div class="hint" id="boardTip">從右側豆盒抓豆拖到這裡放置；點擊已放的豆可收回。</div>
+      <div class="board-hint edit-hint" id="boardEditHint" hidden>
+        框選模式：在釘板上拖曳選出要保留的格子範圍，完成後按「套用」。
+      </div>
+      <div class="complete-banner" id="completeBanner">🎉 拼豆完成！所有格子都已放上正確顏色。</div>
+    </div>
+  </section>
+
+  <!-- 右側：物理豆盒抽屜（半常駐，從右側拉出） -->
+</main>
+
+<aside class="drawer drawer-bottom" id="boxDrawer" aria-hidden="true">
+  <!-- 拉柄（卡片左側，收起時露出的就是它） -->
+  <div class="drawer-rail" id="boxDrawerHandle" role="button" tabindex="0" aria-label="拉出豆盒">
+    <span class="rail-grip-h"></span>
+    <span class="rail-grip-h"></span>
+    <span class="rail-grip-h"></span>
+    <span class="rail-label-h">豆盒</span>
+    <button type="button" class="rail-pull-btn" id="boxPullBtn" title="單獨抽出物理豆盒" aria-label="單獨抽出物理豆盒">
+      <span class="pull-icon">⇱</span><span class="pull-text">抽出</span>
+    </button>
+    <span class="rail-arrow-h">⌃</span>
+  </div>
+
+  <div class="drawer-card">
+    <div class="drawer-head">
+      <span class="drawer-title">物理豆盒</span>
+      <button type="button" class="drawer-close" id="boxDrawerClose" title="收起豆盒" aria-label="收起豆盒">⌄</button>
+    </div>
+
+    <div class="drawer-body">
+      <div class="box-layout">
+        <div class="box-top">
+          <div class="selected-info" id="selectedInfoDrawer"></div>
+          <div class="box-actions">
+            <button type="button" class="primary" id="pourBtn">倒豆</button>
+            <button type="button" id="shakeBtn">翻動</button>
+            <button type="button" id="clearBoxBtn">清空</button>
+          </div>
+          <div class="hint" id="boxCount">盒內 0 / 120 顆</div>
+        </div>
+        <div class="box-slot" id="boxSlot">
+          <div class="box-wrap" id="boxWrap">
+            <canvas id="boxCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- 右側：圖片庫抽屜（半常駐，從右側拉出） -->
+<aside class="drawer drawer-right" id="libDrawer" aria-hidden="true">
+  <!-- 拉柄（卡片左側，收起時露出的就是它） -->
+  <div class="drawer-rail" id="libDrawerHandle" role="button" tabindex="0" aria-label="拉出圖片庫">
+    <span class="rail-arrow">‹</span>
+    <span class="rail-grip"></span>
+    <span class="rail-grip"></span>
+    <span class="rail-grip"></span>
+    <span class="rail-label">圖庫</span>
+  </div>
+
+  <div class="drawer-card">
+    <div class="drawer-head">
+      <span class="drawer-title">圖片庫</span>
+      <button type="button" class="drawer-close" id="libDrawerClose" title="收起圖片庫" aria-label="收起圖片庫">›</button>
+    </div>
+    <div class="drawer-body">
+      <section class="drawer-section lib-section">
+        <div class="lib-toolbar">
+          <span class="lib-count" id="libCount">共 0 張</span>
+          <button type="button" class="ghost-btn lib-clear" id="libClearAll">清空全部</button>
+        </div>
+        <div class="lib-empty" id="libEmpty">
+          上傳圖片後，會自動保存在這裡；可隨時載入、複製或刪除。
+        </div>
+        <div class="lib-list" id="libList"></div>
+      </section>
+    </div>
+  </div>
+</aside>
+<div id="dragGhost"></div>
+
+<!-- 圖片區域選擇彈窗 -->
+<div class="crop-modal" id="cropModal" aria-hidden="true">
+  <div class="crop-card">
+    <div class="crop-head">
+      <span class="crop-title">選擇要拼的圖片區域</span>
+      <button type="button" class="crop-close" id="cropCancel" title="取消" aria-label="取消">✕</button>
+    </div>
+    <div class="crop-body">
+      <div class="crop-stage">
+        <canvas id="cropCanvas"></canvas>
+      </div>
+      <div class="crop-side">
+        <div class="crop-preview-label">像素化預覽</div>
+        <div class="crop-preview-box">
+          <canvas id="cropPreview"></canvas>
+        </div>
+        <div class="crop-info" id="cropInfo"></div>
+        <div class="crop-hint">拖動框選區域，拖四角或四邊可縮放。框的長寬比已鎖定為目標網格比例，保證不變形。</div>
+      </div>
+    </div>
+    <div class="crop-foot">
+      <button type="button" class="ghost-btn" id="cropReset">重置</button>
+      <button type="button" class="ghost-btn" id="cropSkip">用整張圖</button>
+      <button type="button" class="primary" id="cropConfirm">確定，生成圖案</button>
+    </div>
+  </div>
+</div>
+
+<!-- 抽出後的浮動豆盒小窗 -->
+<div class="box-float" id="boxFloat" aria-hidden="true">
+  <div class="box-float-head" id="boxFloatHead">
+    <span class="box-float-title">物理豆盒</span>
+    <button type="button" class="box-float-close" id="boxFloatClose" title="收回豆盒" aria-label="收回豆盒">✕</button>
+  </div>
+  <div class="box-float-body">
+    <div class="selected-info" id="selectedInfoFloat"></div>
+    <div class="box-float-wrap" id="boxFloatSlot"></div>
+  </div>
+</div>
+
+<button id="themeToggle" class="theme-fab" title="切換淺色 / 深色模式" aria-label="切換主題"><span id="themeIcon">🌙</span></button>
+
+<script src="vendor/matter.min.js"></script>
+<script src="data/color-card.js"></script>
+<script src="scripts/config.js"></script>
+<script src="scripts/color-diff.js"></script>
+<script src="scripts/image-processor.js"></script>
+<script src="scripts/inventory.js"></script>
+<script src="scripts/physics-box.js"></script>
+<script src="scripts/image-store.js"></script>
+<script src="scripts/cropper.js"></script>
+<script src="scripts/board.js"></script>
+<script src="scripts/background.js"></script>
+<script src="scripts/app.js"></script>
+</body>
+</html>
